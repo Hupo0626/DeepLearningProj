@@ -1,0 +1,19 @@
+name: DeepLearningProject
+OS:
+  - Ubuntu 18.04
+channels:
+  - python
+  - tensorflow
+  - CUDA
+dependencies:
+  - python=2.7
+  - Flask=1.0.2
+  - Redis=5.0.4
+  - tensorflow=1.13.1
+  - imageMagick=7.0.6-40
+  - matplotlib=3.0.3
+  - pycairo=1.13.1
+  - pytorch=0.40.0
+  - pathos=0.2.3
+  - scipy=1.2.1
+  - texlive=2019
