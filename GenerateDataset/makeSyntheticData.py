@@ -54,9 +54,11 @@ def canonicalOrdering(things):
     ls = sorted(ls, key = lambda l: (l.points[0].x,l.points[0].y,
                                      l.points[1].x,l.points[1].y,
                                      l.solid,l.arrow))
-    ts = [t for t in things if isinstance(t,Label) ]
-    ts = sorted(ts, key = lambda t: (t.p.x,t.p.y))
-    return cs + rs + ls + ts
+    ts = [t for t in things if isinstance(t,Triangle) ]
+    ts = sorted(ts, key=lambda t: (t.p1.x, t.p1.y))
+    las = [t for t in things if isinstance(t,Label) ]
+    las = sorted(las, key = lambda t: (t.p.x,t.p.y))
+    return cs + rs + ls + ts + las
 
 
 def proposeAttachmentLines(objects):
@@ -138,6 +140,20 @@ def sampleRectangle(objects):
                 p2 = AbsolutePoint(x2,y2)
                 return Rectangle(p1, p2)
 
+def sampleTriangle(objects):
+    while True:
+        p1 = samplePoint(objects)
+        p2 = samplePoint(objects)
+        if p1.x != p2.x and p1.y != p2.y:
+            x1 = (min([p1.x,p2.x]))
+            x2 = (max([p1.x,p2.x]))
+            y1 = (min([p1.y,p2.y]))
+            y2 = (max([p1.y,p2.y]))
+            if x2 - x1 > 0.5 and y2 - y1 > 0.5:
+                p1 = AbsolutePoint(x1,y1)
+                p2 = AbsolutePoint(x2,y2)
+                return Triangle(p1, p2)
+
 def sampleLabel(objects):
     l = Label.sample()
     l.p = samplePoint(objects)
@@ -191,11 +207,12 @@ def sampleWithoutIntersection(n, existingObjects, f):
             existingObjects += [newObject]
     return existingObjects
 
-def multipleObjects(rectangles = 0,lines = 0,circles = 0,labels = 0):
+def multipleObjects(rectangles = 0, triangles = 0, lines = 0,circles = 0,labels = 0):
     def sampler():
         objects = []
         objects = sampleWithoutIntersection(circles, objects, lambda: sampleCircle(objects))
         objects = sampleWithoutIntersection(rectangles, objects, lambda: sampleRectangle(objects))
+        objects = sampleWithoutIntersection(triangles, objects, lambda: sampleTriangle(objects))
         objects = sampleWithoutIntersection(labels, objects, lambda: sampleLabel(objects))
         attachedLines = proposeAttachmentLines(objects)
         objects = sampleWithoutIntersection(lines, objects, lambda: sampleLine(objects,attachedLines))
@@ -207,7 +224,8 @@ def randomScene(maximumNumberOfObjects):
         while True:
             n = choice(range(maximumNumberOfObjects)) + 1
             if NIPSPRIMITIVES():
-                shapeIdentities = [choice(range(3)) for _ in range(n) ]
+                # shapeIdentities = 3 # 只生成三角形
+                shapeIdentities = [choice(range(4)) for _ in range(n) ] # 生成所有的四种图形
             else:
                 shapeIdentities = [choice(range(4)) for _ in range(n) ]
                 numberOfLabels = len([i for i in shapeIdentities if i == 3 ])
@@ -215,13 +233,14 @@ def randomScene(maximumNumberOfObjects):
                 if numberOfLabels > n/2: continue
             
             return multipleObjects(rectangles = len([x for x in shapeIdentities if x == 0 ]),
+                                   triangles=len([x for x in shapeIdentities if x == 3 ]),
                                    lines = len([x for x in shapeIdentities if x == 1 ]),
                                    circles = len([x for x in shapeIdentities if x == 2 ]),
-                                   labels = len([x for x in shapeIdentities if x == 3 ]))()
+                                   labels = len([x for x in shapeIdentities if x == 4 ]))()
     return sampler
 
 def handleGeneration(arguments):
-    generators = {"randomScene": randomScene(12)}
+    generators = {"randomScene": randomScene(7)}
     (n,startingPoint,k) = arguments
     # IMPORTANT!
     # You *do not* want directories with an enormous number of files in them
@@ -231,7 +250,7 @@ def handleGeneration(arguments):
     makeSyntheticData("%s/%d/%s"%(outputName,startingPoint,n), generators[n], k = k, offset = startingPoint)
     print("Generated %d training sequences into %s/%d"%(k,outputName,startingPoint))
 
-default_num=50
+default_num=20
 
 if __name__ == '__main__':
     if not NIPSPRIMITIVES():

@@ -21,7 +21,9 @@ COORDINATENOISE = 0.0
 STROKESIZE = 2
 FONTSIZE = 12
 
-SNAPTOGRID = choice([0,0,0,0,0,0,0,0,0,0,0,0,0,1,1])
+SNAPTOGRID = True
+# SNAPTOGRID = choice([0,0,0,0,0,0,0,0,0,1])
+
 def setSnapToGrid(s):
     global SNAPTOGRID
     SNAPTOGRID = s
@@ -72,9 +74,9 @@ class Program():
     def __repr__(self): return str(self)
     def __ne__(self,o): return str(self) != str(o)
 
+
 class Expression():
     pass
-
 
 
 class AbsolutePoint(Expression):
@@ -99,13 +101,12 @@ class AbsolutePoint(Expression):
         if l > 0.0001:
             return AbsolutePoint(self.x/l,self.y/l)
         else: return self
-    def rotateNinetyDegrees(self):
-        return AbsolutePoint(self.y,
-                             -self.x)
 
-    def translate(self,x,y):
-        return AbsolutePoint((self.x + x),
-                             (self.y + y))
+    def rotateNinetyDegrees(self):
+        return AbsolutePoint(self.y, -self.x)
+
+    def translate(self, x, y):
+        return AbsolutePoint((self.x + x), (self.y + y))
 
     def children(self): return [self.x,self.y]
     
@@ -193,7 +194,7 @@ class Label(Program):
 
         
 class Line(Program):
-    def __init__(self, points, arrow = False, solid = True):
+    def __init__(self, points, arrow=False, solid=True):  # points: AbsolutePoint
         self.points = points
         self.arrow = arrow
         self.solid = solid
@@ -206,7 +207,7 @@ class Line(Program):
         (x1,y1) = reflectPoint(a,c,self.points[0].x,self.points[0].y)
         (x2,y2) = reflectPoint(a,c,self.points[1].x,self.points[1].y)
         if self.arrow:
-            return Line.absolute(x1,y1,x2,y2,arrow = True,solid = self.solid)
+            return Line.absolute(x1,y1,x2,y2, arrow=True, solid=self.solid)
         else:
             (a,b) = min((x1,y1),(x2,y2))
             (c,d) = max((x1,y1),(x2,y2))
@@ -246,6 +247,7 @@ class Line(Program):
 
     def translate(self,x,y):
         return Line([p.translate(x,y) for p in self.points ],self.arrow, self.solid)
+
     def logPrior(self): return -math.log(14*14*14*14*2*2)
 
     def isDiagonal(self):
@@ -264,7 +266,7 @@ class Line(Program):
                           self.points[1].y - self.points[0].y)
 
     def intersects(self,o):
-        if isinstance(o,Circle) or isinstance(o,Label) or isinstance(o,Rectangle):
+        if isinstance(o,Circle) or isinstance(o,Label) or isinstance(o,Rectangle) or isinstance(o,Triangle):
             return o.intersects(self)
         if isinstance(o,Line):
             s = self
@@ -392,14 +394,13 @@ class Line(Program):
         return Line.absolute(x1,y1,x2,y2)
 
     def usedCoordinates(self):
-        return set([self.points[0].x,self.points[1].x]),set([self.points[0].y,self.points[1].y])
+        return set([self.points[0].x,self.points[1].x]), set([self.points[0].y,self.points[1].y])
                 
 
 class Rectangle(Program):
     def __init__(self, p1, p2):
         self.p1 = p1
         self.p2 = p2
-        self.triangle = choice([True,False])
 
     def reflect(self,a,c):
         (x1,y1) = reflectPoint(a,c,self.p1.x,self.p1.y)
@@ -415,18 +416,9 @@ class Rectangle(Program):
     def draw(self,context):
         context.set_line_width(STROKESIZE)
         context.set_source_rgb(256,256,256)
-        if self.triangle:
-            context.move_to(self.p1.x*16,self.p1.y*16)
-            context.line_to(self.p1.x*16,self.p2.y*16)
-            context.line_to(self.p2.x*16,self.p2.y*16)
-            context.line_to(self.p1.x*16,self.p1.y*16)
-            context.stroke()
-        else:
-            #context.set_line_width(STROKESIZE)
-            #context.set_source_rgb(256,256,256)
-            context.rectangle(self.p1.x*16,self.p1.y*16,
+        context.rectangle(self.p1.x*16,self.p1.y*16,
                           (self.p2.x - self.p1.x)*16,(self.p2.y - self.p1.y)*16)
-            context.stroke()
+        context.stroke()
     
     def logPrior(self): return -math.log(14*14*14*14)
     def translate(self,x,y):
@@ -437,27 +429,17 @@ class Rectangle(Program):
         return Rectangle(AbsolutePoint((x1),(y1)),
                          AbsolutePoint((x2),(y2)))
     def children(self): return [self.p1,self.p2]
-    
     def constituentLines(self):
-        if not self.triangle:
-            return [Line([self.p1, AbsolutePoint(self.p2.x,self.p1.y)]),
+        return [Line([self.p1, AbsolutePoint(self.p2.x,self.p1.y)]),
                 Line([AbsolutePoint(self.p2.x,self.p1.y), self.p2]),
                 Line([self.p2, AbsolutePoint(self.p1.x,self.p2.y)]),
                 Line([AbsolutePoint(self.p1.x,self.p2.y), self.p1])]
-        else:
-            return [Line([self.p1, AbsolutePoint(self.p2.x, self.p1.y)]),
-                    Line([AbsolutePoint(self.p1.x,self.p2.y), self.p2]),
-                    Line([self.p1, self.p2])]
     def attachmentPoints(self):
         # all of the edges
-        if not self.triangle:
-            ps = [ (x, self.p1.y, 'v') for x in range(int(self.p1.x + 0.5) + 1, int(self.p2.x)) ]
-            ps += [ (self.p2.x, y, 'h') for y in range(int(self.p1.y + 0.5) + 1, int(self.p2.y)) ]
-            ps += [ (x, self.p2.y, 'v') for x in range(int(self.p1.x + 0.5) + 1, int(self.p2.x)) ]
-            ps += [ (self.p1.x, y, 'h') for y in range(int(self.p1.y + 0.5) + 1, int(self.p2.y)) ]
-        else:
-            ps = [ (x, self.p2.y, 'v') for x in range(int(self.p1.x + 0.5) + 1, int(self.p2.x)) ]
-            ps += [ (self.p1.x, y, 'h') for y in range(int(self.p1.y + 0.5) + 1, int(self.p2.y)) ]
+        ps = [ (x, self.p1.y, 'v') for x in range(int(self.p1.x + 0.5) + 1, int(self.p2.x)) ]
+        ps += [ (self.p2.x, y, 'h') for y in range(int(self.p1.y + 0.5) + 1, int(self.p2.y)) ]
+        ps += [ (x, self.p2.y, 'v') for x in range(int(self.p1.x + 0.5) + 1, int(self.p2.x)) ]
+        ps += [ (self.p1.x, y, 'h') for y in range(int(self.p1.y + 0.5) + 1, int(self.p2.y)) ]
         return ps
     def usedXCoordinates(self):
         return [self.p1.x,self.p2.x]
@@ -471,7 +453,12 @@ class Rectangle(Program):
             for l in self.constituentLines():
                 if l.intersects(o): return True
             return False
-        if isinstance(o,Rectangle):
+        if isinstance(o, Rectangle):
+            for l1 in self.constituentLines():
+                for l2 in o.constituentLines():
+                    if l1.intersects(l2): return True
+            return False
+        if isinstance(o, Triangle):
             for l1 in self.constituentLines():
                 for l2 in o.constituentLines():
                     if l1.intersects(l2): return True
@@ -488,17 +475,11 @@ class Rectangle(Program):
         attributes = ",".join(attributes)
         (x1,y1) = p1
         (x2,y2) = p2
-        if self.triangle:
-            p1 = "(%.2f,%.2f)"%(x1,y1)
-            p2 = "(%.2f,%.2f)"%(x1,y2)
-            p3 = "(%.2f,%.2f)"%(x2,y2)
-            return "\\draw [%s] %s -- %s -- %s-- cycle;"%(attributes,p1,p2,p3)
-        else:
-            p1 = "(%.2f,%.2f)"%(x1,y1)
-            p2 = "(%.2f,%.2f)"%(x2,y1)
-            p3 = "(%.2f,%.2f)"%(x2,y2)
-            p4 = "(%.2f,%.2f)"%(x1,y2)
-            return "\\draw [%s] %s -- %s -- %s -- %s -- cycle;"%(attributes,p1,p2,p3,p4)
+        p1 = "(%.2f,%.2f)"%(x1,y1)
+        p2 = "(%.2f,%.2f)"%(x2,y1)
+        p3 = "(%.2f,%.2f)"%(x2,y2)
+        p4 = "(%.2f,%.2f)"%(x1,y2)
+        return "\\draw [%s] %s -- %s -- %s -- %s -- cycle;"%(attributes,p1,p2,p3,p4)
 
     @staticmethod
     def noisyLineCommand(p1,p2,p3,p4, noisy = True):
@@ -507,9 +488,6 @@ class Rectangle(Program):
             attributes = ["line width = %.2fcm"%(0.1 + truncatedNormal(-1,1)*0.04)]
         if noisy: attributes += ["pencildraw"]
         attributes = ",".join(attributes)
-        #if self.triangle:
-            #return "\\draw [%s] %s --%s --%s -- cycle;"%(attributes,p1,p2,p3)
-        #else:
         return "\\draw [%s] %s -- %s -- %s -- %s -- cycle;"%(attributes,
                                                              p1,p2,p3,p4)
 
@@ -537,12 +515,11 @@ class Rectangle(Program):
         p2 = "(%.2f,%.2f)"%(x2,y1)
         p3 = "(%.2f,%.2f)"%(x2,y2)
         p4 = "(%.2f,%.2f)"%(x1,y2)
-        if self.triangle:
-            return [Rectangle.noisyLineCommand(p1,p4,p3,p1)]
-        else:
-            return [Rectangle.noisyLineCommand(p1,p2,p3,p4)]
+        return [Rectangle.noisyLineCommand(p1,p2,p3,p4)]
+
     def __str__(self):
         return "Rectangle(%s, %s)"%(str(self.p1),str(self.p2))
+
     def mutate(self):
         dx = self.p2.x - self.p1.x
         dy = self.p2.y - self.p1.y
@@ -576,6 +553,176 @@ class Rectangle(Program):
 
     def usedCoordinates(self):
         return set([self.p1.x,self.p2.x]),set([self.p1.y,self.p2.y])
+
+
+class Triangle(Program):
+    def __init__(self, p1, p2):
+        self.p1 = p1
+        self.p2 = p2
+        self.p3 = AbsolutePoint(self.p1.x, self.p2.y)
+
+    def reflect(self, a, c):
+        (x1, y1) = reflectPoint(a, c, self.p1.x, self.p1.y)
+        (x2, y2) = reflectPoint(a, c, self.p2.x, self.p2.y)
+        return Triangle.absolute(min(x1, x2),
+                                  min(y1, y2),
+                                  max(x1, x2),
+                                  max(y1, y2))
+
+    def round(self, p):
+        return Triangle(self.p1.round(p), self.p2.round(p))
+
+    def draw(self, context):
+        context.set_line_width(STROKESIZE)
+        context.set_source_rgb(256, 256, 256)
+        context.move_to(self.p1.x*16, self.p1.y*16)
+        context.line_to(self.p1.x*16, self.p2.y*16)
+        context.line_to(self.p2.x*16, self.p2.y*16)
+        context.line_to(self.p1.x*16, self.p1.y*16)
+        context.stroke()
+
+    def logPrior(self):
+        return -math.log(14 * 14 * 14 * 14)
+
+    def translate(self, x, y):
+        return Triangle(self.p1.translate(x, y),
+                         self.p2.translate(x, y))
+
+    @staticmethod
+    def absolute(x1, y1, x2, y2):
+        return Triangle(AbsolutePoint((x1), (y1)),
+                        AbsolutePoint((x1), (y2)))
+                         # AbsolutePoint((x2), (y2)))
+
+    def children(self):
+        return [self.p1, self.p2]
+
+    def constituentLines(self):
+        return [Line([self.p1, AbsolutePoint(self.p2.x, self.p1.y)]),
+                Line([AbsolutePoint(self.p1.x, self.p2.y), self.p2]),
+                Line([self.p1, self.p2])]
+
+    def attachmentPoints(self):
+        # all of the edges
+        ps = [(x, self.p2.y, 'v') for x in range(int(self.p1.x + 0.5) + 1, int(self.p2.x))]
+        ps += [(self.p1.x, y, 'h') for y in range(int(self.p1.y + 0.5) + 1, int(self.p2.y))]
+        return ps
+
+    def usedXCoordinates(self):
+        return [self.p1.x, self.p2.x]
+
+    def usedYCoordinates(self):
+        return [self.p1.y, self.p2.y]
+
+    def intersects(self, o):
+        if isinstance(o, Circle) or isinstance(o, Label): return o.intersects(self)
+        if isinstance(o, Line):
+            o = o.epsilonShrink()  # lines are allowed to border rectangles
+            for l in self.constituentLines():
+                if l.intersects(o): return True
+            return False
+        if isinstance(o, Rectangle):
+            for l1 in self.constituentLines():
+                for l2 in o.constituentLines():
+                    if l1.intersects(l2): return True
+            return False
+        if isinstance(o, Triangle):
+            for l1 in self.constituentLines():
+                for l2 in o.constituentLines():
+                    if l1.intersects(l2): return True
+            return False
+        raise Exception('triangle intersection')
+
+    @staticmethod
+    def command(p1, p2, noisy=False):
+        attributes = ["line width = 0.1cm"]
+        if noisy:
+            attributes = ["line width = %.2fcm" % (0.1 + truncatedNormal(-1, 1) * 0.04)]
+        if noisy: attributes += ["pencildraw"]
+        attributes = ",".join(attributes)
+        (x1, y1) = p1
+        (x2, y2) = p2
+        p1 = "(%.2f,%.2f)" % (x1, y1)
+        p2 = "(%.2f,%.2f)" % (x1, y2)
+        p3 = "(%.2f,%.2f)" % (x2, y2)
+        return "\\draw [%s] %s -- %s -- %s-- cycle;" % (attributes, p1, p2, p3)
+
+    @staticmethod
+    def noisyLineCommand(p1, p2, p3, p4, noisy=True):
+        attributes = ["line width = 0.1cm"]
+        if noisy:
+            attributes = ["line width = %.2fcm" % (0.1 + truncatedNormal(-1, 1) * 0.04)]
+        if noisy: attributes += ["pencildraw"]
+        attributes = ",".join(attributes)
+        return "\\draw [%s] %s -- %s -- %s -- %s -- cycle;" % (attributes,
+                                                               p1, p2, p3, p4)
+
+    def evaluate(self):
+        return [Triangle.command(self.p1.evaluate(),
+                                  self.p2.evaluate())]
+
+    def noisyEvaluate(self):
+        (x1, y1) = self.p1.evaluate()
+        (x2, y2) = self.p2.evaluate()
+
+        # perturb the center
+        def centerNoise():
+            return truncatedNormal(-1, 1) * COORDINATENOISE * 0.7
+
+        def vertexNoise():
+            return truncatedNormal(-1, 1) * COORDINATENOISE * 0.3
+
+        w = x2 - x1
+        h = y2 - y1
+        cx = (x2 + x1) / 2.0 + centerNoise()
+        cy = (y2 + y1) / 2.0 + centerNoise()
+        x1 = cx - w / 2.0 + vertexNoise()
+        x2 = cx + w / 2.0 + vertexNoise()
+        y1 = cy - h / 2.0 + vertexNoise()
+        y2 = cy + h / 2.0 + vertexNoise()
+
+        p1 = "(%.2f,%.2f)" % (x1, y1)
+        # p2 = "(%.2f,%.2f)" % (x2, y1)
+        p3 = "(%.2f,%.2f)" % (x2, y2)
+        p4 = "(%.2f,%.2f)" % (x1, y2)
+        return [Triangle.noisyLineCommand(p1, p4, p3, p1)]
+
+    def __str__(self):
+        return "Triangle(%s, %s, %s)" % (str(self.p1), str(self.p2), str(self.p3))
+
+    def mutate(self):
+        dx = self.p2.x - self.p1.x
+        dy = self.p2.y - self.p1.y
+        if dx == dy and dx < 8 and dx % 2 == 0 and random() < 0.5 and (dx == 2 or (not NIPSPRIMITIVES())):
+            return Circle(AbsolutePoint(self.p1.x + dx / 2,
+                                        self.p1.y + dy / 2),
+                          dx / 2)
+        while True:
+            p1 = self.p1
+            p2 = self.p2
+            if random() > 0.5:
+                p1 = p1.mutate()
+            else:
+                p2 = p2.mutate()
+            if p1.x < p2.x and p1.y < p2.y:
+                return Triangle(p1, p2)
+
+    @staticmethod
+    def sample():
+        while True:
+            p1 = AbsolutePoint.sample()
+            p2 = AbsolutePoint.sample()
+            if p1.x != p2.x and p1.y != p2.y:
+                x1 = (min([p1.x, p2.x]))
+                x2 = (max([p1.x, p2.x]))
+                y1 = (min([p1.y, p2.y]))
+                y2 = (max([p1.y, p2.y]))
+                p1 = AbsolutePoint(x1, y1)
+                p2 = AbsolutePoint(x2, y2)
+                return Triangle(p1, p2)
+
+    def usedCoordinates(self):
+        return set([self.p1.x, self.p2.x]), set([self.p1.y, self.p2.y])
 
 class Circle(Program):
     def __init__(self, center, radius):
@@ -634,6 +781,7 @@ class Circle(Program):
         if noisy:
             lw = "line width = %.2fcm"%(0.1 + truncatedNormal(-1,1)*0.03)
         return "\\node[draw,%scircle,inner sep=0pt,minimum size = %.2fcm,%s] at %s {};"%(noisy,radius*2,lw,center)
+
     def __str__(self):
         return "Circle(center = %s, radius = %s)"%(str(self.center),str(self.radius))
     
@@ -677,9 +825,14 @@ class Circle(Program):
             for l in o.constituentLines():
                 if self.intersects(l): return True
             return False
+        elif isinstance(o,Triangle):
+            for l in o.constituentLines():
+                if self.intersects(l): return True
+            return False
             
     def inbounds(self):
         return inbounds(self.center.x + self.radius) and inbounds(self.center.x - self.radius) and inbounds(self.center.y + self.radius) and inbounds(self.center.y - self.radius)
+
     @staticmethod
     def sample():
         while True:
@@ -721,6 +874,7 @@ class Sequence(Program):
 
     def onlyOneKindOfObject(self):
         return all( isinstance(l,Line) for l in self.lines  ) or \
+            all( isinstance(l, Triangle) for l in self.lines) or \
             all( isinstance(l,Rectangle) for l in self.lines  ) or \
             all( isinstance(l,Circle) for l in self.lines  )
     
@@ -779,6 +933,15 @@ class Sequence(Program):
             a = [(x_,y_) for (x_,y_,_) in x.attachmentPoints()]
             if len(set(a)&linePoints) == 0: return True
         return False
+    def haveOrphanTriangles(self):
+        linePoints = set([(p.x,p.y) for l in self.lines
+                      if isinstance(l,Line)
+                      for p in l.points])
+        for x in self.lines:
+            if not isinstance(x,Triangle): continue
+            a = [(x_,y_) for (x_,y_,_) in x.attachmentPoints()]
+            if len(set(a)&linePoints) == 0: return True
+        return False
     def haveOrphanRectangles(self):
         linePoints = set([(p.x,p.y) for l in self.lines
                       if isinstance(l,Line)
@@ -797,6 +960,7 @@ class Sequence(Program):
                          self.haveOrphanLines(),
                          self.haveUnattachedLines(),
                          self.haveOrphanCircles(),
+                         self.haveOrphanTriangles(),
                          self.haveOrphanRectangles(),
                          self.haveDiagonalLines()])
 
@@ -906,6 +1070,11 @@ class Sequence(Program):
                     x.append(p.p2.x - q.p2.x)
                     y.append(p.p1.y - q.p1.y)
                     y.append(p.p2.y - q.p2.y)
+                if isinstance(p,Triangle) and isinstance(q,Triangle):
+                    x.append(p.p1.x - q.p1.x)
+                    x.append(p.p2.x - q.p2.x)
+                    y.append(p.p1.y - q.p1.y)
+                    y.append(p.p2.y - q.p2.y)
                 if isinstance(p,Line) and isinstance(q,Line):
                     if p.solid != q.solid or p.arrow != q.arrow: continue
                     x.append(p.points[0].x - q.points[0].x)
@@ -927,6 +1096,11 @@ class Sequence(Program):
                                     p.p1.y - q.p1.y))
                     vectors.append((p.p2.x - q.p2.x,
                                     p.p2.y - q.p2.y))
+                if isinstance(p,Triangle) and isinstance(q,Triangle):
+                    vectors.append((p.p1.x - q.p1.x,
+                                    p.p1.y - q.p1.y))
+                    vectors.append((p.p2.x - q.p2.x,
+                                    p.p2.y - q.p2.y))
                 if isinstance(p,Line) and isinstance(q,Line):
                     if p.solid != q.solid or p.arrow != q.arrow: continue
                     vectors.append((p.points[0].x - q.points[0].x,
@@ -940,13 +1114,14 @@ class Sequence(Program):
 
 
 def randomLineOfCode():
-    k = choice(range(5))
+    k = choice(range(6))
     if k == 0: return None
     if k == 1: return Circle.sample()
     if k == 2: return Line.sample()
     if k == 3: return Rectangle.sample()
+    if k == 4: return Triangle.sample()
     if NIPSPRIMITIVES(): return randomLineOfCode()
-    if k == 4: return Label.sample()
+    if k == 5: return Label.sample()
     assert False
 
 def drawAttentionSequence(background, transformations, l):
@@ -1017,9 +1192,9 @@ def drawAttentionSequence(background, transformations, l):
     
     
 if __name__ == '__main__':
-    SNAPTOGRID = choice([0,0,0,0,0,0,0,0,0,1])
+    SNAPTOGRID = True
     s = Sequence.sample(10)
-    print s
+    print(s)
     x = render([s.noisyTikZ()],yieldsPixels = True)[0]
     y = (s.draw())
 
@@ -1030,4 +1205,4 @@ if __name__ == '__main__':
     N = 100
     for _ in range(N):
         s.draw()
-    print "%f fps"%(N/(time() - startTime))
+    print("%f fps"%(N/(time() - startTime)))

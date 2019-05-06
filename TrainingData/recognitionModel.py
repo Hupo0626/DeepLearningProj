@@ -28,7 +28,7 @@ TESTINGFRACTION = 0.05
 CONTINUOUSROUNDING = 1
 ATTENTIONCANROTATE = True
 
-[STOP,CIRCLE,LINE,RECTANGLE,LABEL] = range(5)
+[STOP,CIRCLE,LINE,RECTANGLE,TRIANGLE,LABEL] = range(6)
 
 
 class StandardPrimitiveDecoder():
@@ -71,7 +71,7 @@ class StandardPrimitiveDecoder():
                 # save the transform as a field so that we can visualize it later
                 self.attentionTransforms += [theta]
                 # clobber the existing image input with the region that attention is focusing on
-                C = int(imageRepresentation.shape[3]) # channel count
+                C = int(imageRepresentation.shape[4]) # channel count
                 transformed = spatial_transformer_network(imageRepresentation,
                                                           theta,
                                                           (self.attentionSize,self.attentionSize))
@@ -200,24 +200,24 @@ class CircleDecoder(StandardPrimitiveDecoder):
             self.outputDimensions = [(int,MAXIMUMCOORDINATE)]*3 # x,y,r
             self.hiddenSizes = [None, None, None]
 
-        if NIPSPRIMITIVES(): # fixed radius: radius is the last thing so remove that
-            if attention > 0:
-                self.attentionIndices = self.attentionIndices[:-1]
-            self.outputDimensions = self.outputDimensions[:-1]
-            self.hiddenSizes = self.hiddenSizes[:-1]
+        # if NIPSPRIMITIVES(): # fixed radius: radius is the last thing so remove that
+        #     if attention > 0:
+        #         self.attentionIndices = self.attentionIndices[:-1]
+        #     self.outputDimensions = self.outputDimensions[:-1]
+        #     self.hiddenSizes = self.hiddenSizes[:-1]
             
         self.makeNetwork(imageRepresentation)
     
     def beam(self, session, feed, beamSize):
-        if NIPSPRIMITIVES():
-            r = 1
-            return [(s, Circle(AbsolutePoint(x,y),r))
-                    for s,[x,y] in self.beamTrace(session, feed, beamSize)
-                    if x - r > 0 and y - r > 0 and x + r < MAXIMUMCOORDINATE and y + r < MAXIMUMCOORDINATE]
-        else:
-            return [(s, Circle(AbsolutePoint(x,y),r))
-                    for s,[x,y,r] in self.beamTrace(session, feed, beamSize)
-                    if x - r > 0 and y - r > 0 and x + r < MAXIMUMCOORDINATE and y + r < MAXIMUMCOORDINATE]
+        # if NIPSPRIMITIVES():
+        #     r = 1
+        #     return [(s, Circle(AbsolutePoint(x,y),r))
+        #             for s,[x,y] in self.beamTrace(session, feed, beamSize)
+        #             if x - r > 0 and y - r > 0 and x + r < MAXIMUMCOORDINATE and y + r < MAXIMUMCOORDINATE]
+        # else:
+        return [(s, Circle(AbsolutePoint(x,y),r))
+                for s,[x,y,r] in self.beamTrace(session, feed, beamSize)
+                if x - r > 0 and y - r > 0 and x + r < MAXIMUMCOORDINATE and y + r < MAXIMUMCOORDINATE]
 
     def sample(self, session, feed):
         if NIPSPRIMITIVES():
@@ -228,6 +228,7 @@ class CircleDecoder(StandardPrimitiveDecoder):
 
     @staticmethod
     def extractTargets(l):
+
         if l != None and isinstance(l,Circle):
             return [l.center.x,
                     l.center.y] + ([] if NIPSPRIMITIVES() else [l.radius])
@@ -263,6 +264,47 @@ class LabelDecoder(StandardPrimitiveDecoder):
                     l.p.y,
                     Label.allowedLabels.index(l.c)]
         return [0,0,0]
+
+#todo:
+#   class TriangleDecoder()
+#   this files contains aroud 13 occurances of .*Rectangle.*, fill in the objects (decoder) of Triangle behind Rectangle or add methods accordingly
+
+class TriangleDecoder(StandardPrimitiveDecoder):
+    token = TRIANGLE
+    languagePrimitive = Triangle
+
+    def __init__(self, imageRepresentation, continuous, attention):
+        if attention > 0:
+            self.attentionIndices = [1, 2, 3, 4]
+            self.attentionSize = attention
+        if continuous:
+            self.outputDimensions = [(float, MAXIMUMCOORDINATE)] * 6  # x,y
+            self.hiddenSizes = [None] * 6
+        else:
+            self.outputDimensions = [(int, MAXIMUMCOORDINATE)] * 6  # x,y
+            self.hiddenSizes = [None] * 6
+        self.makeNetwork(imageRepresentation)
+
+    def beam(self, session, feed, beamSize):
+        return [(s, Triangle.absolute(x1, y1, x2, y2))
+                for s, [x1, y1, x2, y2] in self.beamTrace(session, feed, beamSize)
+                if x1 < x2 and y1 < y2 and x1 > 0 and x2 > 0 and y1 > 0 and y2 > 0]
+
+    def sample(self, session, feed):
+        [x1, y1, x2, y2] = self.sampleTrace(session, feed)
+        return Triangle.absolute(x1, y1, x2, y2)
+
+    @staticmethod
+    def extractTargets(l):
+        if l != None and isinstance(l, Triangle):
+            return [l.p1.x,
+                    l.p1.y,
+                    l.p1.x,
+                    l.p2.y,
+                    l.p2.x,
+                    l.p2.y]
+        return [0] * 6
+
 
 class RectangleDecoder(StandardPrimitiveDecoder):
     token = RECTANGLE
@@ -348,7 +390,7 @@ class StopDecoder():
 
 class PrimitiveDecoder():
     # It shouldn't matter in what order these are listed. If it does then I will consider that a bug.
-    decoderClasses = [CircleDecoder, RectangleDecoder, LineDecoder, StopDecoder] if NIPSPRIMITIVES() else [CircleDecoder, RectangleDecoder, LineDecoder, LabelDecoder, StopDecoder]
+    decoderClasses = [CircleDecoder, RectangleDecoder, TriangleDecoder, LineDecoder, StopDecoder] if NIPSPRIMITIVES() else [CircleDecoder, RectangleDecoder, TriangleDecoder, LineDecoder, LabelDecoder, StopDecoder]
     def __init__(self, imageRepresentation, trainingPredicatePlaceholder, continuous, attention):
         self.decoders = [k(imageRepresentation,continuous,attention) for k in PrimitiveDecoder.decoderClasses]
 
@@ -485,10 +527,12 @@ class RecurrentDecoder():
         
         primitiveArguments = [[MAXIMUMCOORDINATE,MAXIMUMCOORDINATE], # circle
                               [MAXIMUMCOORDINATE]*4, # rectangle
+                              [MAXIMUMCOORDINATE]*6, # triangle
                               [MAXIMUMCOORDINATE]*4 + [2,2], # line
                               []] # stop
         builders = [lambda x,y: Circle(AbsolutePoint(x,y),1),
                     lambda a,b,p,q: Rectangle.absolute(a,b,p,q),
+                    lambda a, b, p, q: Triangle.absolute(a, b, p, q),
                     lambda a,b,p,q,arrow, solid: Line.absolute(a,b,p,q,arrow = arrow == 1,solid = solid == 1)]
         def Checker(sequence):
             #print "checking sequence:",sequence
@@ -560,13 +604,13 @@ class RecognitionModel():
             self.trainingPredicatePlaceholder = tf.placeholder(tf.bool)
 
             if self.arguments.LSTM:
-                imageInput = tf.stack([self.goalPlaceholder], axis = 3)
+                imageInput = tf.stack([self.goalPlaceholder], axis = 4)
             else:
-                imageInput = tf.stack([self.currentPlaceholder,self.goalPlaceholder], axis = 3)
+                imageInput = tf.stack([self.currentPlaceholder,self.goalPlaceholder], axis = 4)
 
             c1 = architectures[self.arguments.architecture].makeModel(imageInput)
 
-            decoderClass = RecurrentDecoder if self.arguments.LSTM else PrimitiveDecoder
+            decoderClass = RecurrentDecoder if self.arguments.LSTM else PrimitiveDecoder # Sequencial:RecurrentDecoder, else: PrimitiveDecoder
             self.decoder = decoderClass(c1, self.trainingPredicatePlaceholder,
                                             arguments.continuous,
                                             arguments.attention)
@@ -681,7 +725,7 @@ class RecognitionModel():
     def beam(self, current, goal, beamSize, maximumLength = None):
         if self.arguments.LSTM:
             feed = {self.goalPlaceholder: np.array([goal])}
-        else:            
+        else:
             feed = {self.currentPlaceholder: np.array([current]),
                     self.goalPlaceholder: np.array([goal])}
         return sorted(self.decoder.beam(self.session, feed, beamSize, maximumLength = maximumLength),
@@ -763,6 +807,8 @@ class RecognitionModel():
                                            if isinstance(f['target'],Line)]))
         print "Rectangle failures: %d"%(len([ None for f in failures
                                            if isinstance(f['target'],Rectangle)]))
+        print "Triangle failures: %d" % (len([None for f in failures
+                                               if isinstance(f['target'], Triangle)]))
         print "Label failures: %d"%(len([ None for f in failures
                                            if isinstance(f['target'],Label)]))
         print "Stop failures: %d"%(len([ None for f in failures
@@ -825,7 +871,7 @@ class DistanceModel():
             imageInput = tf.stack([self.currentPlaceholder,self.goalPlaceholder], axis = 3)
 
             c1 = architectures[self.arguments.architecture].makeModel(imageInput)
-            c1d = int(c1.shape[1]*c1.shape[2]*c1.shape[3])
+            c1d = int(c1.shape[1]*c1.shape[2]*c1.shape[4])
 
             f1 = tf.reshape(c1, [-1, c1d])
 
