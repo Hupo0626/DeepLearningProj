@@ -1,13 +1,13 @@
 from multiprocessing import Pool
 import sys
 import os
-from language import *
-from render import render
+from DefineSpec.language import *
+from DefineSpec.render import render
 from character import *
 from PIL import Image
 import pickle
 from random import choice,shuffle
-from utilities import showImage, NIPSPRIMITIVES
+from DefineSpec.utilities import showImage, NIPSPRIMITIVES
 
 CANONICAL = True
 
@@ -224,8 +224,8 @@ def randomScene(maximumNumberOfObjects):
         while True:
             n = choice(range(maximumNumberOfObjects)) + 1
             if NIPSPRIMITIVES():
-                # shapeIdentities = 3 # 只生成三角形
-                shapeIdentities = [choice(range(4)) for _ in range(n) ] # 生成所有的四种图形
+                # shapeIdentities = 3 triangle only
+                shapeIdentities = [choice(range(4)) for _ in range(n) ] # rectangle only
             else:
                 shapeIdentities = [choice(range(4)) for _ in range(n) ]
                 numberOfLabels = len([i for i in shapeIdentities if i == 3 ])
@@ -261,8 +261,8 @@ if __name__ == '__main__':
         outputName = 'syntheticContinuousTrainingData'
     else:
         # models imperfect grid alignment
-        setCoordinateNoise(0.2)
-        setRadiusNoise(0.1)
+        setCoordinateNoise(0.5)
+        setRadiusNoise(1)
         outputName = 'syntheticTrainingData'
 
     if len(sys.argv) > 1:

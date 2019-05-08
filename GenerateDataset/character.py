@@ -1,4 +1,4 @@
-from utilities import *
+from DefineSpec.utilities import *
 
 import pickle
 from random import choice
