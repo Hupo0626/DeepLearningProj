@@ -1,8 +1,5 @@
 import itertools
 import cv2
-'''
-todo: install opencv2
-'''
 import numpy as np
 import matplotlib.pyplot as plt
 
