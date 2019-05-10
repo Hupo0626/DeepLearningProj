@@ -43,7 +43,9 @@ def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
         unlabeledPixels[unlabeledPixels > 1] = 1
         unlabeledPixels = (1 - unlabeledPixels)*255
         labeledPixels = Image.fromarray(unlabeledPixels).convert('L')
-        labeledPixels.save("%s-%d-noisy.png"%(filePrefix,j + offset))
+
+
+        # labeledPixels.save("%s-%d-noisy.png"%(filePrefix,j + offset))
 
         if True:
 
@@ -56,14 +58,16 @@ def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
                     anchors.append((p.p1.x,p.p1.y))
                 elif isinstance(p, Triangle):
                     anchors.append((p.p1.x,p.p1.y))
-
-            print(anchors)
+                elif isinstance(p,Line):
+                    anchors.append((p.p1.x,p.p1.y))
+                    anchors.append((p.p2.x, p.p2.y))
+            # print(anchors)
             raw=255 *(1-programs[j].draw())
             # for anc in np.random.choice(anchors,2):
             for anc in anchors:
-                v=(np.random.randn()*10,np.random.randn()*10)
+                v=(np.random.randn()*7,np.random.randn()*7)
                 raw=T.distortion(raw,anc,v)
-            Image.fromarray(raw).convert('L').save("%s-%d-dist.png" % (filePrefix, j + offset))
+            Image.fromarray(raw).convert('L').save("%s-%d-noisy.png" % (filePrefix, j + offset))
             # Image.fromarray(255*programs[j].draw()).convert('L').save("%s-%d-clean.png"%(filePrefix,j + offset))
 
 def canonicalOrdering(things):
