@@ -6,13 +6,18 @@ from DefineSpec.render import render
 from character import *
 from PIL import Image
 import pickle
+import numpy as np
 from random import choice,shuffle
 from DefineSpec.utilities import showImage, NIPSPRIMITIVES
-
+from DefineSpec.Transform import Transform
 CANONICAL = True
+T=Transform()
 
+gctr=0
 def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
     """sample should return a program"""
+    global gctr
+    gctr+=1
     programs = [sample() for _ in range(k)]
     print ("Sampled %d programs."%k)
     # remove all of the labels - we will render them separately
@@ -40,9 +45,27 @@ def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
         labeledPixels = Image.fromarray(unlabeledPixels).convert('L')
         labeledPixels.save("%s-%d-noisy.png"%(filePrefix,j + offset))
 
-        if False:
-            Image.fromarray(255*programs[j].draw()).convert('L').save("%s-%d-clean.png"%(filePrefix,j + offset))
-            
+        if True:
+
+            anchors=[]
+            for i,p in enumerate(programs[j].lines):
+
+                if isinstance(p,Circle):
+                    anchors.append((p.center.x,p.center.y))
+                elif isinstance(p, Rectangle):
+                    anchors.append((p.p1.x,p.p1.y))
+                elif isinstance(p, Triangle):
+                    anchors.append((p.p1.x,p.p1.y))
+
+            print(anchors)
+            raw=255 *(1-programs[j].draw())
+            # for anc in np.random.choice(anchors,2):
+            for anc in anchors:
+                v=(np.random.randn()*10,np.random.randn()*10)
+                raw=T.distortion(raw,anc,v)
+            Image.fromarray(raw).convert('L').save("%s-%d-dist.png" % (filePrefix, j + offset))
+            # Image.fromarray(255*programs[j].draw()).convert('L').save("%s-%d-clean.png"%(filePrefix,j + offset))
+
 def canonicalOrdering(things):
     if things == [] or not CANONICAL: return things
     cs = [c for c in things if isinstance(c,Circle) ]
@@ -250,7 +273,7 @@ def handleGeneration(arguments):
     makeSyntheticData("%s/%d/%s"%(outputName,startingPoint,n), generators[n], k = k, offset = startingPoint)
     print("Generated %d training sequences into %s/%d"%(k,outputName,startingPoint))
 
-default_num=20
+default_num=10
 
 if __name__ == '__main__':
     if not NIPSPRIMITIVES():

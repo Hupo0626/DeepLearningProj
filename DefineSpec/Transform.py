@@ -1,5 +1,5 @@
 import itertools
-import cv2
+# import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -49,8 +49,8 @@ class Transform:
             vij=(vector[0]*(1-d/size[0])),vector[1]*(1-d/size[1])
             oi,oj=ti-vij[0],tj-vij[1]
             v=self.interpolate(img,oi,oj)
-            if (v>255).all():
-                print(v)
+            # if (v>255).all():
+            #     print(v)
             new_img[ti,tj]=v
 
         return new_img
