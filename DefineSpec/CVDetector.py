@@ -16,7 +16,6 @@ class CVDetector:
         print('Detecting Circle')
         circles = cv2.HoughCircles(img,cv2.HOUGH_GRADIENT,1,20,param1=50,param2=30,minRadius=0,maxRadius=0)
         res=[]
-    #     print(circles)
         for c in circles:
             x,y,r=c[0]
             res.append('Circle({},{},{})'.format(x,y,r))
@@ -26,7 +25,6 @@ class CVDetector:
         _, threshold = cv2.threshold(img, 240, 255, cv2.THRESH_BINARY)
         _,contours,_=cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         res=[]
-    #     print(contours)
         for cnt in contours:
     #         print(cnt)
             approx = cv2.approxPolyDP(cnt, 0.01*cv2.arcLength(cnt, True), True)
