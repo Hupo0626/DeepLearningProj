@@ -35,40 +35,34 @@ def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
     
     for j in range(len(programs)):
         pickle.dump(programs[j], open("%s-%d.p"%(filePrefix,j + offset),'wb'))
-        unlabeledPixels = 1 - pixels[noisyTargets[j]]
-        for l in onlyLabels[j]:
-            blitCharacter(unlabeledPixels,
-                          l.p.x*16,l.p.y*16,
-                          l.c)
-        unlabeledPixels[unlabeledPixels > 1] = 1
-        unlabeledPixels = (1 - unlabeledPixels)*255
-        labeledPixels = Image.fromarray(unlabeledPixels).convert('L')
-
-
+        # unlabeledPixels = 1 - pixels[noisyTargets[j]]
+        # for l in onlyLabels[j]:
+        #     blitCharacter(unlabeledPixels,
+        #                   l.p.x*16,l.p.y*16,
+        #                   l.c)
+        # unlabeledPixels[unlabeledPixels > 1] = 1
+        # unlabeledPixels = (1 - unlabeledPixels)*255
+        # labeledPixels = Image.fromarray(unlabeledPixels).convert('L')
         # labeledPixels.save("%s-%d-noisy.png"%(filePrefix,j + offset))
+        anchors=[]
+        for i,p in enumerate(programs[j].lines):
 
-        if True:
-
-            anchors=[]
-            for i,p in enumerate(programs[j].lines):
-
-                if isinstance(p,Circle):
-                    anchors.append((p.center.x,p.center.y))
-                elif isinstance(p, Rectangle):
-                    anchors.append((p.p1.x,p.p1.y))
-                elif isinstance(p, Triangle):
-                    anchors.append((p.p1.x,p.p1.y))
-                elif isinstance(p,Line):
-                    for point in p.points:
-                        anchors.append((point.x,point.y))
-
+            if isinstance(p,Circle):
+                anchors.append((p.center.x,p.center.y))
+            elif isinstance(p, Rectangle):
+                anchors.append((p.p1.x,p.p1.y))
+            elif isinstance(p, Triangle):
+                anchors.append((p.p1.x,p.p1.y))
+            elif isinstance(p,Line):
+                for point in p.points:
+                    anchors.append((point.x,point.y))
             # print(anchors)
-            raw=255 *(1-programs[j].draw())
-            # for anc in np.random.choice(anchors,2):
-            for anc in anchors:
-                v=(np.random.randn()*7,np.random.randn()*7)
-                raw=T.distortion(raw,anc,v)
-            Image.fromarray(raw).convert('L').save("%s-%d-noisy.png" % (filePrefix, j + offset))
+        raw=255 *(1-programs[j].draw())
+        # for anc in np.random.choice(anchors,2):
+        for anc in anchors:
+            v=(np.random.randn()*7,np.random.randn()*7)
+            raw=T.distortion(raw,anc,v)
+        Image.fromarray(raw).convert('L').save("%s-%d-noisy.png" % (filePrefix, j + offset))
             # Image.fromarray(255*programs[j].draw()).convert('L').save("%s-%d-clean.png"%(filePrefix,j + offset))
 
 def canonicalOrdering(things):
@@ -278,7 +272,7 @@ def handleGeneration(arguments):
     makeSyntheticData("%s/%d/%s"%(outputName,startingPoint,n), generators[n], k = k, offset = startingPoint)
     print("Generated %d training sequences into %s/%d"%(k,outputName,startingPoint))
 
-default_num=10
+default_num=100
 
 if __name__ == '__main__':
     if not NIPSPRIMITIVES():
