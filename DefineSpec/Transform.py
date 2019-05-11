@@ -1,5 +1,4 @@
 import itertools
-# import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -23,9 +22,8 @@ class Transform:
             else:
                 p=pij0*((j-j0)/(j1-j0))+pij1*((j1-j)/(j1-j0))
         except:
-            print(img.shape,i,j,i0,j0,i1,j1)
-    #         print(pij0,pij1,p)
-            raise
+            print('interpolation error:',img.shape,i,j,i0,j0,i1,j1)
+            return 255.
         return p
 
     def distortion(self,img,anchor,vector):
@@ -36,21 +34,13 @@ class Transform:
         :return: distorted image
         '''
         size=img.shape
-    #     anchor=(np.random.randint(size[0]),np.random.randint(size[1]))
-#         anchor=(130,130)
         p1=(anchor[0]+vector[0],anchor[1]+vector[1])
-#         print(p0,p1)
         new_img=img.copy()
-
-    #     for oi,oj in itertools.product(range(anchor[0]-sqr_radius,anchor[0]+sqr_radius),range(anchor[1]-sqr_radius,anchor[1]+sqr_radius)):
         for ti,tj in itertools.product(range(size[0]),range(size[0])):
-            d1,d2=abs(ti-p1[0]),abs(tj-p1[1])
+
             d=np.sqrt((ti-p1[0])**2+(tj-p1[1])**2)
             vij=(vector[0]*(1-d/size[0])),vector[1]*(1-d/size[1])
             oi,oj=ti-vij[0],tj-vij[1]
             v=self.interpolate(img,oi,oj)
-            # if (v>255).all():
-            #     print(v)
-            new_img[ti,tj]=v
-
+            new_img[ti,tj]=min(v,255.)
         return new_img
