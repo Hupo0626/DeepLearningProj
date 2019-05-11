@@ -59,8 +59,9 @@ def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
                 elif isinstance(p, Triangle):
                     anchors.append((p.p1.x,p.p1.y))
                 elif isinstance(p,Line):
-                    anchors.append((p.p1.x,p.p1.y))
-                    anchors.append((p.p2.x, p.p2.y))
+                    for point in p.points:
+                        anchors.append((point.x,point.y))
+
             # print(anchors)
             raw=255 *(1-programs[j].draw())
             # for anc in np.random.choice(anchors,2):
