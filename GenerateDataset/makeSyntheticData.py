@@ -272,7 +272,7 @@ def handleGeneration(arguments):
     makeSyntheticData("%s/%d/%s"%(outputName,startingPoint,n), generators[n], k = k, offset = startingPoint)
     print("Generated %d training sequences into %s/%d"%(k,outputName,startingPoint))
 
-default_num=100
+default_num=30
 
 if __name__ == '__main__':
     if not NIPSPRIMITIVES():
