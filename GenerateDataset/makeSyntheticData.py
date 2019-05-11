@@ -6,6 +6,7 @@ from DefineSpec.render import render
 from character import *
 from PIL import Image
 import pickle
+# import random
 import numpy as np
 from random import choice,shuffle
 from DefineSpec.utilities import showImage, NIPSPRIMITIVES
@@ -36,22 +37,19 @@ def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
     
     for j in range(len(programs)):
         pickle.dump(programs[j], open("%s-%d.p"%(filePrefix,j + offset),'wb'))
+        unlabeledPixels = 1 - pixels[noisyTargets[j]]
+        for l in onlyLabels[j]:
+            blitCharacter(unlabeledPixels,
+                          l.p.x*16,l.p.y*16,
+                          l.c)
+        unlabeledPixels[unlabeledPixels > 1] = 1
+        unlabeledPixels = (1 - unlabeledPixels)*255
+        labeledPixels = Image.fromarray(unlabeledPixels).convert('L')
 
-        if np.random.randn()>=DISTORTION_P:
-            unlabeledPixels = 1 - pixels[noisyTargets[j]]
-            for l in onlyLabels[j]:
-                blitCharacter(unlabeledPixels,
-                              l.p.x*16,l.p.y*16,
-                              l.c)
-            unlabeledPixels[unlabeledPixels > 1] = 1
-            unlabeledPixels = (1 - unlabeledPixels)*255
-            labeledPixels = Image.fromarray(unlabeledPixels).convert('L')
-
-            labeledPixels.save("%s-%d-noisy.png"%(filePrefix,j + offset))
-        else:
+        labeledPixels.save("%s-%d-noisy.png"%(filePrefix,j + offset))
+        if np.random.random_sample()<=DISTORTION_P:
             anchors=[]
             for i,p in enumerate(programs[j].lines):
-
                 if isinstance(p,Circle):
                     anchors.append((p.center.x,p.center.y))
                 elif isinstance(p, Rectangle):
@@ -61,8 +59,8 @@ def makeSyntheticData(filePrefix, sample, k = 1000, offset = 0):
                 elif isinstance(p,Line):
                     for point in p.points:
                         anchors.append((point.x,point.y))
-                # print(anchors)
-            raw=255 *(1-programs[j].draw())
+            # print(anchors)
+            raw=unlabeledPixels
             # for anc in np.random.choice(anchors,2):
             for anc in anchors:
                 v=(np.random.randn()*7,np.random.randn()*7)
